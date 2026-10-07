@@ -17,7 +17,7 @@ export async function PATCH(
       );
     }
 
-    const updated = claimItem(id, claimedBy, claimNotes);
+    const updated = await claimItem(id, claimedBy, claimNotes);
     if (!updated) {
       return NextResponse.json(
         { success: false, error: '找不到該筆遺失物' },

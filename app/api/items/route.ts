@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     const status = searchParams.get('status') || '全部';
     const custodyType = searchParams.get('custodyType') || '全部';
 
-    let items = getAllItems();
+    let items = await getAllItems();
 
     if (search) {
       items = items.filter(
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
       securityQuestion: body.securityQuestion || '',
     };
 
-    const saved = addItem(newItem);
+    const saved = await addItem(newItem);
     return NextResponse.json({ success: true, item: saved });
   } catch (error) {
     console.error('Failed to create item:', error);

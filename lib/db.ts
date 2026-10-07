@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { LostItem } from './types';
+import { neon } from '@neondatabase/serverless';
 
 const DB_FILE = process.env.VERCEL
   ? path.join('/tmp', 'items.json')
@@ -25,7 +26,7 @@ const INITIAL_SEED_ITEMS: LostItem[] = [
     aiConfidence: 97,
     aiEngine: 'smart-mock',
     status: 'available',
-    createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(), // 45 分鐘前
+    createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
     finderName: '好心資管二 陳同學',
     securityQuestion: '充電盒開蓋後內部耳機序號末兩碼，或是否包含雙耳？',
   },
@@ -43,7 +44,7 @@ const INITIAL_SEED_ITEMS: LostItem[] = [
     aiConfidence: 99,
     aiEngine: 'smart-mock',
     status: 'available',
-    createdAt: new Date(Date.now() - 1000 * 60 * 130).toISOString(), // 2 小時前
+    createdAt: new Date(Date.now() - 1000 * 60 * 130).toISOString(),
     finderName: '資管大四 林同學',
     securityQuestion: '請出示身分證件或核對完整學號',
   },
@@ -61,7 +62,7 @@ const INITIAL_SEED_ITEMS: LostItem[] = [
     aiConfidence: 94,
     aiEngine: 'smart-mock',
     status: 'available',
-    createdAt: new Date(Date.now() - 1000 * 60 * 280).toISOString(), // 4.5 小時前
+    createdAt: new Date(Date.now() - 1000 * 60 * 280).toISOString(),
     finderName: '助教 張學長',
   },
   {
@@ -78,7 +79,7 @@ const INITIAL_SEED_ITEMS: LostItem[] = [
     aiConfidence: 95,
     aiEngine: 'smart-mock',
     status: 'available',
-    createdAt: new Date(Date.now() - 1000 * 60 * 600).toISOString(), // 10 小時前
+    createdAt: new Date(Date.now() - 1000 * 60 * 600).toISOString(),
     finderName: '修統計課的同學',
   },
   {
@@ -95,7 +96,7 @@ const INITIAL_SEED_ITEMS: LostItem[] = [
     aiConfidence: 98,
     aiEngine: 'smart-mock',
     status: 'available',
-    createdAt: new Date(Date.now() - 1000 * 60 * 1440).toISOString(), // 1 天前
+    createdAt: new Date(Date.now() - 1000 * 60 * 1440).toISOString(),
     finderName: '企管所 研討生',
     securityQuestion: '鍵盤背後的 Apple Logo 旁是否有其他刻字或裝飾貼紙？',
   },
@@ -113,13 +114,77 @@ const INITIAL_SEED_ITEMS: LostItem[] = [
     aiConfidence: 92,
     aiEngine: 'smart-mock',
     status: 'claimed',
-    createdAt: new Date(Date.now() - 1000 * 60 * 2800).toISOString(), // 2 天前
+    createdAt: new Date(Date.now() - 1000 * 60 * 2800).toISOString(),
     finderName: '圖書館工讀生',
     claimedAt: new Date(Date.now() - 1000 * 60 * 600).toISOString(),
     claimedBy: '資工系 11204012 王同學',
     claimNotes: '失主出示購買發票與傘柄刻痕核對無誤，已取回。',
   },
 ];
+
+// 取得資料庫連線字串（Vercel Postgres / Neon）
+function getPostgresUrl(): string | null {
+  return process.env.POSTGRES_URL || process.env.DATABASE_URL || null;
+}
+
+let isPostgresInitialized = false;
+
+// 自動建立 PostgreSQL 資料表並匯入種子資料
+async function initPostgresTable(sql: any) {
+  if (isPostgresInitialized) return;
+
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS lost_items (
+        id VARCHAR(255) PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        category VARCHAR(100) NOT NULL,
+        image_url TEXT NOT NULL,
+        building VARCHAR(100) NOT NULL,
+        classroom VARCHAR(100) NOT NULL,
+        custody_type VARCHAR(50) NOT NULL,
+        custody_detail TEXT NOT NULL,
+        features JSONB NOT NULL DEFAULT '[]'::jsonb,
+        color VARCHAR(100),
+        ai_confidence INT,
+        ai_engine VARCHAR(50),
+        status VARCHAR(50) NOT NULL,
+        created_at TEXT NOT NULL,
+        finder_name VARCHAR(100) NOT NULL,
+        claimed_at TEXT,
+        claimed_by VARCHAR(100),
+        claim_notes TEXT,
+        security_question TEXT
+      );
+    `;
+
+    // 檢查資料表中是否已有資料
+    const countRes = await sql`SELECT count(*) as count FROM lost_items;`;
+    const count = parseInt(countRes[0]?.count || '0', 10);
+
+    if (count === 0) {
+      console.log('Seeding initial items to PostgreSQL...');
+      for (const item of INITIAL_SEED_ITEMS) {
+        await sql`
+          INSERT INTO lost_items (
+            id, title, category, image_url, building, classroom,
+            custody_type, custody_detail, features, color,
+            ai_confidence, ai_engine, status, created_at,
+            finder_name, claimed_at, claimed_by, claim_notes, security_question
+          ) VALUES (
+            ${item.id}, ${item.title}, ${item.category}, ${item.imageUrl}, ${item.building}, ${item.classroom},
+            ${item.custodyType}, ${item.custodyDetail}, ${JSON.stringify(item.features)}, ${item.color},
+            ${item.aiConfidence}, ${item.aiEngine}, ${item.status}, ${item.createdAt},
+            ${item.finderName}, ${item.claimedAt || null}, ${item.claimedBy || null}, ${item.claimNotes || null}, ${item.securityQuestion || null}
+          );
+        `;
+      }
+    }
+    isPostgresInitialized = true;
+  } catch (err) {
+    console.error('Failed to initialize PostgreSQL table:', err);
+  }
+}
 
 function ensureDbDirectory() {
   const dir = path.dirname(DB_FILE);
@@ -128,7 +193,47 @@ function ensureDbDirectory() {
   }
 }
 
-export function getAllItems(): LostItem[] {
+// 取得所有失物
+export async function getAllItems(): Promise<LostItem[]> {
+  const pgUrl = getPostgresUrl();
+
+  // 1. 若有 Vercel Postgres / Neon 連線字串，使用雲端資料庫
+  if (pgUrl) {
+    try {
+      const sql = neon(pgUrl);
+      await initPostgresTable(sql);
+
+      const rows = await sql`
+        SELECT * FROM lost_items ORDER BY created_at DESC;
+      `;
+
+      return rows.map((r: any) => ({
+        id: r.id,
+        title: r.title,
+        category: r.category,
+        imageUrl: r.image_url,
+        building: r.building,
+        classroom: r.classroom,
+        custodyType: r.custody_type,
+        custodyDetail: r.custody_detail,
+        features: Array.isArray(r.features) ? r.features : (typeof r.features === 'string' ? JSON.parse(r.features) : []),
+        color: r.color,
+        aiConfidence: r.ai_confidence,
+        aiEngine: r.ai_engine,
+        status: r.status,
+        createdAt: r.created_at,
+        finderName: r.finder_name,
+        claimedAt: r.claimed_at,
+        claimedBy: r.claimed_by,
+        claimNotes: r.claim_notes,
+        securityQuestion: r.security_question,
+      })) as LostItem[];
+    } catch (err) {
+      console.warn('PostgreSQL query failed, falling back to local memory:', err);
+    }
+  }
+
+  // 2. 本機或無連線字串時的備援模式 (Local File / In-memory)
   if (inMemoryCache) {
     return inMemoryCache;
   }
@@ -155,47 +260,145 @@ export function getAllItems(): LostItem[] {
   }
 }
 
-export function saveItems(items: LostItem[]): void {
+// 新增遺失物
+export async function addItem(item: LostItem): Promise<LostItem> {
+  const pgUrl = getPostgresUrl();
+
+  if (pgUrl) {
+    try {
+      const sql = neon(pgUrl);
+      await initPostgresTable(sql);
+
+      await sql`
+        INSERT INTO lost_items (
+          id, title, category, image_url, building, classroom,
+          custody_type, custody_detail, features, color,
+          ai_confidence, ai_engine, status, created_at,
+          finder_name, claimed_at, claimed_by, claim_notes, security_question
+        ) VALUES (
+          ${item.id}, ${item.title}, ${item.category}, ${item.imageUrl}, ${item.building}, ${item.classroom},
+          ${item.custodyType}, ${item.custodyDetail}, ${JSON.stringify(item.features)}, ${item.color},
+          ${item.aiConfidence}, ${item.aiEngine}, ${item.status}, ${item.createdAt},
+          ${item.finderName}, ${item.claimedAt || null}, ${item.claimedBy || null}, ${item.claimNotes || null}, ${item.securityQuestion || null}
+        );
+      `;
+
+      return item;
+    } catch (err) {
+      console.error('Failed to insert into PostgreSQL, falling back to local:', err);
+    }
+  }
+
+  const items = await getAllItems();
+  items.unshift(item);
   inMemoryCache = items;
+
   try {
     ensureDbDirectory();
     fs.writeFileSync(DB_FILE, JSON.stringify(items, null, 2), 'utf-8');
   } catch (err) {
-    console.warn('Could not write to disk in serverless environment, saved to inMemoryCache:', err);
+    console.warn('Could not write to disk in serverless environment:', err);
   }
-}
-
-export function addItem(item: LostItem): LostItem {
-  const items = getAllItems();
-  items.unshift(item); // 最新放在最前面
-  saveItems(items);
   return item;
 }
 
-export function claimItem(id: string, claimedBy: string, claimNotes?: string): LostItem | null {
-  const items = getAllItems();
+// 認領物品狀態更新
+export async function claimItem(id: string, claimedBy: string, claimNotes?: string): Promise<LostItem | null> {
+  const pgUrl = getPostgresUrl();
+  const claimedAt = new Date().toISOString();
+  const finalNotes = claimNotes || '現場核對特徵吻合，已完成認領。';
+
+  if (pgUrl) {
+    try {
+      const sql = neon(pgUrl);
+      await initPostgresTable(sql);
+
+      const res = await sql`
+        UPDATE lost_items
+        SET status = 'claimed',
+            claimed_at = ${claimedAt},
+            claimed_by = ${claimedBy},
+            claim_notes = ${finalNotes}
+        WHERE id = ${id}
+        RETURNING *;
+      `;
+
+      if (res.length > 0) {
+        const r = res[0];
+        return {
+          id: r.id,
+          title: r.title,
+          category: r.category,
+          imageUrl: r.image_url,
+          building: r.building,
+          classroom: r.classroom,
+          custodyType: r.custody_type,
+          custodyDetail: r.custody_detail,
+          features: Array.isArray(r.features) ? r.features : (typeof r.features === 'string' ? JSON.parse(r.features) : []),
+          color: r.color,
+          aiConfidence: r.ai_confidence,
+          aiEngine: r.ai_engine,
+          status: r.status,
+          createdAt: r.created_at,
+          finderName: r.finder_name,
+          claimedAt: r.claimed_at,
+          claimedBy: r.claimed_by,
+          claimNotes: r.claim_notes,
+          securityQuestion: r.security_question,
+        } as LostItem;
+      }
+    } catch (err) {
+      console.error('Failed to update in PostgreSQL, falling back to local:', err);
+    }
+  }
+
+  const items = await getAllItems();
   const index = items.findIndex((i) => i.id === id);
   if (index === -1) return null;
 
   items[index] = {
     ...items[index],
     status: 'claimed',
-    claimedAt: new Date().toISOString(),
+    claimedAt,
     claimedBy,
-    claimNotes: claimNotes || '現場核對特徵吻合，已完成認領。',
+    claimNotes: finalNotes,
   };
 
-  saveItems(items);
+  inMemoryCache = items;
+  try {
+    ensureDbDirectory();
+    fs.writeFileSync(DB_FILE, JSON.stringify(items, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('Could not write to disk in serverless environment:', err);
+  }
+
   return items[index];
 }
 
-export function resetToSeedData(): LostItem[] {
+// 重設回種子資料
+export async function resetToSeedData(): Promise<LostItem[]> {
+  const pgUrl = getPostgresUrl();
+
+  if (pgUrl) {
+    try {
+      const sql = neon(pgUrl);
+      isPostgresInitialized = false;
+
+      await sql`DROP TABLE IF EXISTS lost_items;`;
+      await initPostgresTable(sql);
+
+      return await getAllItems();
+    } catch (err) {
+      console.error('Failed to reset PostgreSQL, falling back to local:', err);
+    }
+  }
+
   inMemoryCache = [...INITIAL_SEED_ITEMS];
   try {
     ensureDbDirectory();
     fs.writeFileSync(DB_FILE, JSON.stringify(INITIAL_SEED_ITEMS, null, 2), 'utf-8');
   } catch (err) {
-    console.warn('Could not write to disk during reset, updated inMemoryCache:', err);
+    console.warn('Could not write to disk during reset:', err);
   }
   return inMemoryCache;
 }

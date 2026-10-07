@@ -3,7 +3,7 @@ import { resetToSeedData } from '@/lib/db';
 
 export async function POST() {
   try {
-    const items = resetToSeedData();
+    const items = await resetToSeedData();
     return NextResponse.json({ success: true, items });
   } catch (error) {
     console.error('Failed to reset items:', error);
