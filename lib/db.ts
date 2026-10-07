@@ -2,7 +2,12 @@ import fs from 'fs';
 import path from 'path';
 import { LostItem } from './types';
 
-const DB_FILE = path.join(process.cwd(), 'data', 'items.json');
+const DB_FILE = process.env.VERCEL
+  ? path.join('/tmp', 'items.json')
+  : path.join(process.cwd(), 'data', 'items.json');
+
+// 雲端無伺服器環境記憶體備援快取
+let inMemoryCache: LostItem[] | null = null;
 
 // 預設擬真校園教室遺失物種子資料
 const INITIAL_SEED_ITEMS: LostItem[] = [
@@ -124,25 +129,40 @@ function ensureDbDirectory() {
 }
 
 export function getAllItems(): LostItem[] {
-  ensureDbDirectory();
-  if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify(INITIAL_SEED_ITEMS, null, 2), 'utf-8');
-    return INITIAL_SEED_ITEMS;
+  if (inMemoryCache) {
+    return inMemoryCache;
   }
 
+  ensureDbDirectory();
   try {
+    if (!fs.existsSync(DB_FILE)) {
+      try {
+        fs.writeFileSync(DB_FILE, JSON.stringify(INITIAL_SEED_ITEMS, null, 2), 'utf-8');
+      } catch (err) {
+        console.warn('Cannot write initial DB_FILE to disk, using inMemoryCache:', err);
+      }
+      inMemoryCache = [...INITIAL_SEED_ITEMS];
+      return inMemoryCache;
+    }
+
     const raw = fs.readFileSync(DB_FILE, 'utf-8');
-    return JSON.parse(raw) as LostItem[];
+    inMemoryCache = JSON.parse(raw) as LostItem[];
+    return inMemoryCache;
   } catch (error) {
-    console.error('Error reading items db, resetting to seed:', error);
-    fs.writeFileSync(DB_FILE, JSON.stringify(INITIAL_SEED_ITEMS, null, 2), 'utf-8');
-    return INITIAL_SEED_ITEMS;
+    console.warn('Error reading items db, falling back to seed:', error);
+    inMemoryCache = [...INITIAL_SEED_ITEMS];
+    return inMemoryCache;
   }
 }
 
 export function saveItems(items: LostItem[]): void {
-  ensureDbDirectory();
-  fs.writeFileSync(DB_FILE, JSON.stringify(items, null, 2), 'utf-8');
+  inMemoryCache = items;
+  try {
+    ensureDbDirectory();
+    fs.writeFileSync(DB_FILE, JSON.stringify(items, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('Could not write to disk in serverless environment, saved to inMemoryCache:', err);
+  }
 }
 
 export function addItem(item: LostItem): LostItem {
@@ -170,7 +190,12 @@ export function claimItem(id: string, claimedBy: string, claimNotes?: string): L
 }
 
 export function resetToSeedData(): LostItem[] {
-  ensureDbDirectory();
-  fs.writeFileSync(DB_FILE, JSON.stringify(INITIAL_SEED_ITEMS, null, 2), 'utf-8');
-  return INITIAL_SEED_ITEMS;
+  inMemoryCache = [...INITIAL_SEED_ITEMS];
+  try {
+    ensureDbDirectory();
+    fs.writeFileSync(DB_FILE, JSON.stringify(INITIAL_SEED_ITEMS, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('Could not write to disk during reset, updated inMemoryCache:', err);
+  }
+  return inMemoryCache;
 }
