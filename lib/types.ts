@@ -10,6 +10,8 @@ export type CustodyType = 'podium' | 'office'; // podium = 留在原教室講桌
 
 export type ItemStatus = 'available' | 'claimed'; // available = 待認領, claimed = 已領回
 
+export type CampusTheme = 'tech-blue' | 'crimson-red' | 'emerald-green';
+
 export interface LostItem {
   id: string;
   title: string;

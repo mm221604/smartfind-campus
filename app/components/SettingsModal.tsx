@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, KeyRound, Sparkles, Check, AlertCircle, ExternalLink, ShieldCheck } from 'lucide-react';
+import { X, KeyRound, Sparkles, Check, ExternalLink } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -41,16 +41,16 @@ export default function SettingsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
-      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 dark:bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200 transition-colors">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/60 dark:bg-slate-800/40">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-indigo-600" />
-            <h2 className="font-bold text-slate-900 text-base">AI 視覺辨識引擎設定</h2>
+            <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+            <h2 className="font-bold text-slate-900 dark:text-white text-base">AI 視覺辨識引擎設定</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -61,8 +61,8 @@ export default function SettingsModal({
           <div
             className={`p-4 rounded-2xl border ${
               apiKey
-                ? 'bg-purple-50/80 border-purple-200 text-purple-900'
-                : 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+                ? 'bg-purple-50/80 dark:bg-purple-950/40 border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200'
+                : 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
             }`}
           >
             <div className="flex items-center gap-2 font-bold text-sm mb-1">
@@ -81,7 +81,7 @@ export default function SettingsModal({
           {/* Gemini API Key 輸入 */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                 <KeyRound className="w-3.5 h-3.5 text-slate-400" />
                 <span>Google AI Studio API Key (選填)</span>
               </label>
@@ -89,7 +89,7 @@ export default function SettingsModal({
                 href="https://aistudio.google.com/app/apikey"
                 target="_blank"
                 rel="noreferrer"
-                className="text-[11px] text-blue-600 hover:text-blue-700 flex items-center gap-1 font-medium"
+                className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-medium"
               >
                 <span>取得免費 API Key</span>
                 <ExternalLink className="w-3 h-3" />
@@ -101,27 +101,27 @@ export default function SettingsModal({
               value={inputKey}
               onChange={(e) => setInputKey(e.target.value)}
               placeholder="AIzaSy..."
-              className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-hidden font-mono text-slate-800"
+              className="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-hidden font-mono text-slate-800 dark:text-slate-100"
             />
-            <p className="text-[11px] text-slate-400 mt-1">
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
               * Key 將保存在您本機瀏覽器中，隨時可清空恢復為免 Key 模擬模式。
             </p>
           </div>
 
           {saveSuccess && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 flex items-center gap-2">
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
               <Check className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>設定已成功儲存！</span>
             </div>
           )}
 
           {/* 按鈕群 */}
-          <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+          <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
             {apiKey ? (
               <button
                 type="button"
                 onClick={handleClear}
-                className="text-xs text-red-600 hover:text-red-700 font-semibold px-2 py-1"
+                className="text-xs text-red-600 dark:text-red-400 hover:underline font-semibold px-2 py-1 cursor-pointer"
               >
                 清除 API Key (切回模擬模式)
               </button>
@@ -133,13 +133,13 @@ export default function SettingsModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                className="px-4 py-2 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
               >
                 關閉
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 text-xs sm:text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md transition-all flex items-center gap-1.5"
+                className="px-5 py-2 text-xs sm:text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
               >
                 <Check className="w-4 h-4" />
                 <span>儲存設定</span>
